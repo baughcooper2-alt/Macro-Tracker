@@ -326,12 +326,12 @@
   <div class="msg" id="import-msg"></div>
 
   <h2>Reset</h2>
-  <p class="hint">Clears everything stored in this browser — entries, favorites, phases — and restores the original sheet history and default phases.</p>
+  <p class="hint">Clears everything in the shared database — entries, favorites, phases, for anyone using this app — and restores the original sheet history and default phases.</p>
   <div class="btnrow"><button class="btn-ghost btn-danger" id="reset" type="button">reset all data</button></div>
   <div class="msg" id="reset-msg"></div>
 </section>
 
-<footer>saved on this device</footer>
+<footer>synced via Neon &middot; cached on this device for offline use</footer>
 
 <script>
 (function(){
@@ -396,9 +396,18 @@ var DEFAULT_PHASES=[
    t:{cal:[2400,2700],protein:[170,200],carbs:[250,300],fat:[70,85]}}
 ];
 
-var K={e:'mt3-entries',p:'mt3-phases',f:'mt3-favs',h:'mt3-hidden',t:'mt3-theme'};
-function load(k,fb){ try{var r=localStorage.getItem(k);return r?JSON.parse(r):fb;}catch(e){return fb;} }
-function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.error('storage',e);} }
+var K={e:'entries',p:'phases',f:'favs',h:'hidden',t:'theme'};
+var API='/api/state';
+var SYNC_KEYS=['entries','phases','favs','hidden'];
+
+function load(k,fb){ try{var r=localStorage.getItem('mt3-'+k);return r?JSON.parse(r):fb;}catch(e){return fb;} }
+function cacheLocal(k,v){ try{localStorage.setItem('mt3-'+k,JSON.stringify(v));}catch(e){console.error('storage',e);} }
+function save(k,v){
+  cacheLocal(k,v);
+  if(SYNC_KEYS.indexOf(k)===-1) return;
+  fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:v})})
+    .catch(function(e){ console.error('sync failed',k,e); });
+}
 
 var entries=load(K.e,{});
 var phases =load(K.p,null) || JSON.parse(JSON.stringify(DEFAULT_PHASES));
@@ -972,16 +981,34 @@ document.getElementById('do-import').addEventListener('click',function(){
 });
 
 document.getElementById('reset').addEventListener('click',function(){
-  if(!confirm('Erase all entries, favorites and phases stored in this browser?')) return;
-  [K.e,K.p,K.f,K.h].forEach(function(k){ try{localStorage.removeItem(k);}catch(e){} });
+  if(!confirm('Erase all entries, favorites and phases — for everyone using this app, since data is shared — and restore the original sheet history?')) return;
   entries={}; favs=[]; hidden={};
   phases=JSON.parse(JSON.stringify(DEFAULT_PHASES));
   sortPhases();
-  document.getElementById('reset-msg').textContent='Reset done. Sheet history and default phases restored.';
+  save(K.e,entries); save(K.p,phases); save(K.f,favs); save(K.h,hidden);
+  document.getElementById('reset-msg').textContent='Reset done and synced. Sheet history and default phases restored.';
   renderLog(); renderPhases();
 });
 
 renderLog();
+
+function syncFromServer(){
+  fetch(API).then(function(r){ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+    .then(function(data){
+      entries = data.entries || {};
+      phases  = (data.phases && data.phases.length) ? data.phases : JSON.parse(JSON.stringify(DEFAULT_PHASES));
+      favs    = data.favs || [];
+      hidden  = data.hidden || {};
+      sortPhases();
+      cacheLocal(K.e,entries); cacheLocal(K.p,phases); cacheLocal(K.f,favs); cacheLocal(K.h,hidden);
+      editingId=null;
+      renderLog();
+      if(document.getElementById('view-stats').classList.contains('active')) renderStats();
+      if(document.getElementById('view-phases').classList.contains('active')) renderPhases();
+    })
+    .catch(function(e){ console.error('initial sync failed, staying on local cache',e); });
+}
+syncFromServer();
 })();
 </script>
 </body>

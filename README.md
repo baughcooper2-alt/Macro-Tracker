@@ -1,13 +1,15 @@
 # Macro Tracker
 
-A single-page macro logger with stats, editable targets, and phase tracking. One HTML file — no build step, no dependencies, no server.
+A single-page macro logger with stats, editable targets, and phase tracking. The UI is one static HTML file with no build step; a small Vercel serverless function persists your data to a Neon Postgres database so it syncs across every device you open the app on.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `index.html` | The whole app. |
-| `macro_data.csv` | Historical daily macros exported from the Google Sheet, also embedded in `index.html` as seed data. |
+| `index.html` | The whole app. Reads/writes through `api/state.js`, with a localStorage copy kept as an offline cache. |
+| `api/state.js` | Vercel serverless function. `GET` returns the current entries/phases/favorites/hidden-days; `POST { key, value }` upserts one of them into Neon. |
+| `package.json` | Declares the `@neondatabase/serverless` dependency the API route uses. |
+| `macro_data.csv` | Historical daily macros exported from the Google Sheet, embedded in `index.html` as seed data (always shipped with the app, independent of the database). |
 
 ## Tabs
 
@@ -32,10 +34,15 @@ To start a bulk, add a phase dated the day you want it to begin and set its rang
 
 ## Storage
 
-Everything you log lives in browser localStorage, per device. Use the CSV export on the data tab to move it or to refresh `macro_data.csv` in this repo.
+Entries, favorites, phases, and hidden-day overrides live in a shared Neon Postgres database (one row per key, in a `kv_store` table the API creates automatically on first use). Every device that opens the app sees and writes the same data — there's no per-user login, so **anyone with the URL can read and edit it**. Keep the deployment URL private if that matters to you. A local copy is also cached in each browser's localStorage so the log tab still works offline and repaints instantly before the server round-trip finishes.
 
-## Publishing with GitHub Pages
+Use the CSV export on the data tab to back up your data or to refresh `macro_data.csv` in this repo.
 
-1. Repo → **Settings** → **Pages**
-2. Source: **Deploy from a branch**, branch `main`, folder `/ (root)`
-3. Open `https://<username>.github.io/<repo>/` and add it to your phone's home screen.
+## Deploying to Vercel + Neon
+
+The app needs a real server for `api/state.js`, so this replaces GitHub Pages (which only serves static files).
+
+1. **Get a database.** In your Vercel project (after step 2) open the **Storage** tab → **Create Database** → **Neon** (Postgres), or create a project directly at [neon.tech](https://neon.tech) and copy its connection string.
+2. **Import the repo into Vercel.** [vercel.com/new](https://vercel.com/new) → sign in with GitHub → import `Macro-Tracker`. Framework preset: *Other*. No build command needed.
+3. **Set the connection string.** If you created the Neon database through Vercel's Storage tab, this is done for you. Otherwise add an environment variable named `DATABASE_URL` with your Neon connection string (Project Settings → Environment Variables), then redeploy.
+4. **Open the deployed URL** and add it to your phone's home screen. The `api/state.js` route creates its table automatically the first time it runs.
