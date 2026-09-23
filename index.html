@@ -372,7 +372,7 @@
   <div class="msg" id="import-msg"></div>
 
   <h2>Reset</h2>
-  <p class="hint">Clears everything in the shared database — entries, favorites, phases, weigh-ins, for anyone using this app — and restores the original sheet history and default phases.</p>
+  <p class="hint">Clears everything in the shared database — entries, favorites, phases, weigh-ins, for anyone using this app — and restores the original sheet history (macros and weigh-ins) and default phases.</p>
   <div class="btnrow"><button class="btn-ghost btn-danger" id="reset" type="button">reset all data</button></div>
   <div class="msg" id="reset-msg"></div>
 </section>
@@ -427,6 +427,17 @@ SEED_CSV.trim().split('\n').forEach(function(l){
   var p=l.split(',');
   SEED[p[0]]={cal:+p[1],protein:+p[2],carbs:+p[3],fat:+p[4]};
 });
+
+// Weigh-ins from the Google Sheet. Logging a date overrides it; deleting stores null.
+var SEED_WEIGHTS={
+  '2026-08-03':178.5,'2026-08-04':180.0,'2026-08-11':181.4,'2026-08-12':180.0,
+  '2026-08-16':178.0,'2026-08-21':182.4,'2026-08-24':179.0,'2026-08-25':180.0,
+  '2026-08-26':180.0,'2026-08-29':185.0,'2026-08-31':183.5,'2026-09-01':183.4,
+  '2026-09-02':183.5,'2026-09-03':184.0,'2026-09-08':186.0,'2026-09-09':185.0,
+  '2026-09-10':184.0,'2026-09-13':186.0,'2026-09-14':187.5,'2026-09-15':185.5,
+  '2026-09-16':185.0,'2026-09-19':188.5,'2026-09-21':185.5,'2026-09-22':187.0,
+  '2026-09-23':186.0
+};
 
 var MACROS=[
   {k:'cal',n:'Calories',u:''},
@@ -994,7 +1005,10 @@ function lb(v){ return (Math.round(v*10)/10).toFixed(1); }
 function signed(v){ return (v>0?'+':v<0?'−':'±')+lb(Math.abs(v)); }
 
 function weightList(){
-  return Object.keys(weights).sort().map(function(k){ return {key:k,w:weights[k],n:dnum(k)}; });
+  var m={};
+  Object.keys(SEED_WEIGHTS).forEach(function(k){ m[k]=SEED_WEIGHTS[k]; });
+  Object.keys(weights).forEach(function(k){ if(weights[k]===null) delete m[k]; else m[k]=weights[k]; });
+  return Object.keys(m).sort().map(function(k){ return {key:k,w:m[k],n:dnum(k)}; });
 }
 // 7-day trailing average for each weigh-in (smooths out water swings)
 function withAvg(list){
@@ -1164,7 +1178,7 @@ document.getElementById('wadd').addEventListener('submit',function(ev){
 document.getElementById('wlist').addEventListener('click',function(ev){
   var b=ev.target.closest('button.del'); if(!b) return;
   if(!confirm('Delete the weigh-in for '+sd(b.dataset.k)+'?')) return;
-  delete weights[b.dataset.k];
+  if(SEED_WEIGHTS[b.dataset.k]) weights[b.dataset.k]=null; else delete weights[b.dataset.k];
   save(K.w,weights);
   renderWeight();
 });

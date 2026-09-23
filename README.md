@@ -9,6 +9,7 @@ A single-page macro logger with stats, editable targets, and phase tracking. The
 | `index.html` | The whole app. Reads/writes through `api/state.js`, with a localStorage copy kept as an offline cache. |
 | `api/state.js` | Vercel serverless function. `GET` returns the current entries/phases/favorites/hidden-days/weights; `POST { key, value }` upserts one of them into Neon. |
 | `package.json` | Declares the `@neondatabase/serverless` dependency the API route uses. |
+| `SEED_WEIGHTS` (in `index.html`) | Weigh-ins from 8/3–9/23/2026 copied from the Google Sheet. Always shipped with the app; logging the same date overrides one, and deleting one hides it. |
 | `macro_data.csv` | Historical daily macros exported from the Google Sheet, embedded in `index.html` as seed data (always shipped with the app, independent of the database). |
 
 ## Tabs
