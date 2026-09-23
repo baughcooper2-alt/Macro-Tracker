@@ -6,7 +6,7 @@ const CONN =
   process.env.NEON_DATABASE_URL ||
   process.env.DATABASE_URL_UNPOOLED;
 
-const KEYS = ['entries', 'phases', 'favs', 'hidden'];
+const KEYS = ['entries', 'phases', 'favs', 'hidden', 'weights'];
 
 module.exports = async (req, res) => {
   if (!CONN) {
